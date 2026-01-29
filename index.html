@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Leicester City Manager - Tactical Sim</title>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; }
+        #pitch-container { position: relative; }
+        canvas { background: #2e7d32; border: 5px solid #fff; }
+        #sidebar { width: 300px; padding: 20px; background: #222; }
+        .log { height: 300px; overflow-y: auto; font-size: 12px; border: 1px solid #444; padding: 10px; }
+        .controls { margin-top: 20px; }
+        button { width: 100%; margin: 5px 0; padding: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="pitch-container">
+        <canvas id="pitch" width="800" height="500"></canvas>
+    </div>
+    <div id="sidebar">
+        <h2>Leicester City FC</h2>
+        <div id="scoreboard">Score: 0 - 0 | Time: 00:00</div>
+        <div class="log" id="match-log">경기 시작을 기다리는 중...</div>
+        <div class="controls">
+            <button onclick="changeTactics('highLine')">라인 높이기 (High Press)</button>
+            <button onclick="changeTactics('lowBlock')">박스 안으로 후퇴 (Low Block)</button>
+            <button onclick="togglePause()">일시정지 / 지시 (Space)</button>
+        </div>
+    </div>
+    <script src="engine.js"></script>
+</body>
+</html>
