@@ -2,30 +2,49 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Leicester City Manager - Tactical Sim</title>
+    <title>Leicester City Tactical Sim v2</title>
     <style>
-        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; }
-        #pitch-container { position: relative; }
-        canvas { background: #2e7d32; border: 5px solid #fff; }
-        #sidebar { width: 300px; padding: 20px; background: #222; }
-        .log { height: 300px; overflow-y: auto; font-size: 12px; border: 1px solid #444; padding: 10px; }
-        .controls { margin-top: 20px; }
-        button { width: 100%; margin: 5px 0; padding: 10px; cursor: pointer; }
+        body { background: #1a1a1a; color: white; font-family: 'Pretendard', sans-serif; display: flex; margin: 0; }
+        #pitch-container { position: relative; padding: 20px; }
+        canvas { background: #2e7d32; border: 3px solid #eee; cursor: crosshair; }
+        #sidebar { width: 350px; background: #222; padding: 20px; border-left: 1px solid #444; }
+        .slider-group { margin-bottom: 20px; background: #333; padding: 10px; border-radius: 8px; }
+        label { display: block; font-size: 13px; margin-bottom: 5px; color: #aaa; }
+        input[type="range"] { width: 100%; }
+        .stats-panel { font-family: monospace; background: #000; padding: 10px; border-radius: 5px; margin-bottom: 20px; color: #0f0; }
+        .active-player { color: #003087; font-weight: bold; background: #fff; padding: 2px 5px; }
     </style>
 </head>
 <body>
     <div id="pitch-container">
-        <canvas id="pitch" width="800" height="500"></canvas>
+        <canvas id="pitch" width="1050" height="680"></canvas>
     </div>
     <div id="sidebar">
-        <h2>Leicester City FC</h2>
-        <div id="scoreboard">Score: 0 - 0 | Time: 00:00</div>
-        <div class="log" id="match-log">경기 시작을 기다리는 중...</div>
-        <div class="controls">
-            <button onclick="changeTactics('highLine')">라인 높이기 (High Press)</button>
-            <button onclick="changeTactics('lowBlock')">박스 안으로 후퇴 (Low Block)</button>
-            <button onclick="togglePause()">일시정지 / 지시 (Space)</button>
+        <h2>Leicester City 지휘소</h2>
+        <div class="stats-panel" id="live-dashboard">
+            선수를 선택하여 지시를 내리십시오.
         </div>
+        
+        <div id="tactics-ui" style="display:none;">
+            <div class="active-player" id="player-name">선수명</div>
+            <div class="slider-group">
+                <label>활동 범위 (Operating Radius): <span id="rad-val">150</span>m</label>
+                <input type="range" id="radius-slider" min="30" max="500" value="150">
+            </div>
+            <div class="slider-group">
+                <label>슈팅 xG 문턱값: <span id="xg-threshold-val">0.3</span></label>
+                <input type="range" id="xg-slider" min="1" max="99" value="30">
+            </div>
+            <div class="slider-group">
+                <label>태클 강도: <span id="tackle-val">50</span></label>
+                <input type="range" id="tackle-slider" min="0" max="100" value="50">
+            </div>
+            <div class="slider-group">
+                <label>패스(좌) vs 크로스(우): <span id="style-val">50</span></label>
+                <input type="range" id="style-slider" min="0" max="100" value="50">
+            </div>
+        </div>
+        <p style="font-size: 11px; color: #666;">* 스페이스바: 일시정지 및 전술 지시</p>
     </div>
     <script src="engine.js"></script>
 </body>
