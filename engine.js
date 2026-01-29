@@ -1,125 +1,158 @@
-// 시뮬레이션 설정
-const PITCH_WIDTH = 800;
-const PITCH_HEIGHT = 500;
+const canvas = document.getElementById('pitch');
+const ctx = canvas.getContext('2d');
+
+const PITCH = { W: 1050, H: 680, GOAL_Y: 340 };
+let isPaused = false;
+let selectedPlayer = null;
 
 class Player {
-    constructor(id, team, x, y, role) {
+    constructor(id, name, team, x, y, role) {
         this.id = id;
+        this.name = name;
         this.team = team;
         this.x = x;
         this.y = y;
-        this.baseX = x; // 전술적 기본 위치
-        this.baseY = y;
+        this.anchorX = x; // 활동 중심점
+        this.anchorY = y;
         this.role = role;
-        this.speed = 2.5;
-        this.stamina = 100;
-        this.color = team === 'Leicester' ? '#003087' : '#ffffff';
+        
+        // 감독 지시값 (기본값)
+        this.radius = 150;
+        this.xgThreshold = 0.3;
+        this.tackleAggression = 50;
+        this.passCrossRatio = 50;
     }
 
-    // AI 오프더볼 무브먼트 로직
-    update(ball, teammates, opponents) {
-        // 1. 공과의 거리 계산
-        const distToBall = Math.hypot(ball.x - this.x, ball.y - this.y);
+    // 복리 감소 xG 계산기 (감독님 공식)
+    calculateXG(ball, goalkeeper, defenders) {
+        let xg = 1.0;
 
-        // 2. 공격 시: 공간 찾아 들어가기 (Space Seeking)
-        if (this.team === ball.possession) {
-            this.offTheBallAttack(ball, opponents);
-        } else {
-            // 3. 수비 시: 마킹 및 라인 유지
-            this.defend(ball);
-        }
-    }
+        // 1. 거리 기반: 1.05m(100/1)마다 4% 복리 감소
+        const dist = Math.hypot(PITCH.W - ball.x, PITCH.GOAL_Y - ball.y);
+        const distUnits = Math.floor(dist / 10.5); 
+        for(let i=0; i < distUnits; i++) xg *= 0.96;
 
-    offTheBallAttack(ball, opponents) {
-        // 상대 수비수들로부터 먼 좌표로 조금씩 이동 (간단한 벡터합)
-        let pushX = 0, pushY = 0;
-        opponents.forEach(opp => {
-            const d = Math.hypot(this.x - opp.x, this.y - opp.y);
-            if (d < 50) { // 너무 가까우면 피함
-                pushX += (this.x - opp.x) / d;
-                pushY += (this.y - opp.y) / d;
-            }
-        });
-        this.x += pushX * 0.5;
-        this.y += pushY * 0.5;
+        // 2. 각도 기반: 정중앙 기준 1도마다 2% 복리 감소
+        const angleRad = Math.atan2(Math.abs(PITCH.GOAL_Y - ball.y), PITCH.W - ball.x);
+        const angleDeg = Math.floor(angleRad * 180 / Math.PI);
+        for(let i=0; i < angleDeg; i++) xg *= 0.98;
 
-        // 제이미 바디 특성: 최전방 공격수면 골대 쪽으로 침투
-        if (this.role === 'ST') this.x += 0.3; 
-    }
+        // 3. 키퍼 시선: 키퍼와 보는 방향이 같아질수록(각도차 0일수록) 1% 복리 감소
+        const angleToKeeper = Math.abs(angleDeg - 0); // 단순화: 키퍼는 항상 정면
+        const keeperPenaltyUnits = Math.floor((180 - angleToKeeper) / 10);
+        for(let i=0; i < keeperPenaltyUnits; i++) xg *= 0.99;
 
-    defend(ball) {
-        // 기본 위치로 복귀하며 공 방향으로 압박
-        const targetX = (this.baseX + ball.x) / 2;
-        this.x += (targetX - this.x) * 0.02;
-    }
+        // 4. 수비수 블로킹: 궤적 방해 시 50% 단판 감소
+        const isBlocked = defenders.some(d => Math.hypot(d.x - ball.x, d.y - ball.y) < 30);
+        if (isBlocked) xg *= 0.5;
 
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-    }
-}
-
-class Match {
-    constructor() {
-        this.canvas = document.getElementById('pitch');
-        this.ctx = this.canvas.getContext('2d');
-        this.ball = { x: 400, y: 250, possession: 'Leicester' };
-        this.players = [
-            new Player(1, 'Leicester', 100, 250, 'GK'),
-            new Player(2, 'Leicester', 700, 250, 'ST'), // 제이미 바디
-            new Player(3, 'Opponent', 750, 250, 'GK'),
-            new Player(4, 'Opponent', 450, 150, 'DF')
-        ];
-        this.timer = 0;
-        this.isPaused = false;
-        this.loop();
+        return Math.max(0.01, xg).toFixed(3);
     }
 
     update() {
-        if (this.isPaused) return;
-
-        this.timer += 0.1; // 실제 시간보다 빠르게
-        this.players.forEach(p => {
-            const teammates = this.players.filter(other => other.team === p.team && other !== p);
-            const opponents = this.players.filter(other => other.team !== p.team);
-            p.update(this.ball, teammates, opponents);
-        });
-
-        // 공 위치 업데이트 (간단화: 점유 팀 선수 중 가장 가까운 자를 따라감)
-        const owner = this.players.find(p => p.team === this.ball.possession && p.role === 'ST');
-        if (owner) {
-            this.ball.x = owner.x + 10;
-            this.ball.y = owner.y;
+        if (isPaused) return;
+        // 오프더볼: 활동 범위(Radius) 내에서만 움직임 제한
+        const d = Math.hypot(this.x - this.anchorX, this.y - this.anchorY);
+        if (d > this.radius) {
+            this.x -= (this.x - this.anchorX) * 0.05;
+            this.y -= (this.y - this.anchorY) * 0.05;
         }
+        // 미세 움직임 AI
+        this.x += (Math.random() - 0.5) * 2;
+        this.y += (Math.random() - 0.5) * 2;
     }
 
     draw() {
-        this.ctx.clearRect(0, 0, PITCH_WIDTH, PITCH_HEIGHT);
-        // 경기장 선 그리기 (간단화)
-        this.ctx.strokeStyle = "rgba(255,255,255,0.5)";
-        this.ctx.strokeRect(0,0,800,500);
-        
-        this.players.forEach(p => p.draw(this.ctx));
-        
-        // 공 그리기
-        this.ctx.fillStyle = "orange";
-        this.ctx.beginPath();
-        this.ctx.arc(this.ball.x, this.ball.y, 5, 0, Math.PI * 2);
-        this.ctx.fill();
+        // 활동 범위 원 그리기
+        if (selectedPlayer === this) {
+            ctx.beginPath();
+            ctx.arc(this.anchorX, this.anchorY, this.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255,255,255,0.2)";
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
 
-        document.getElementById('scoreboard').innerText = 
-            `Time: ${Math.floor(this.timer)}:00 | Leicester Ball`;
-    }
-
-    loop() {
-        this.update();
-        this.draw();
-        requestAnimationFrame(() => this.loop());
+        ctx.fillStyle = this.team === 'Leicester' ? '#003087' : '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(this.name, this.x - 10, this.y - 15);
     }
 }
 
-const game = new Match();
-function togglePause() { game.isPaused = !game.isPaused; }
+// 초기화 (레스터 시티 주요 선수)
+const players = [
+    new Player(1, "Vardy", "Leicester", 800, 340, "ST"),
+    new Player(2, "Winks", "Leicester", 500, 340, "CM"),
+    new Player(3, "Fatawu", "Leicester", 700, 100, "RW"),
+    new Player(4, "Opponent GK", "Away", 1030, 340, "GK")
+];
+
+const ball = { x: 780, y: 340 };
+
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 경기장 중앙선 등 배경
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeRect(0, 0, PITCH.W, PITCH.H);
+    ctx.strokeRect(PITCH.W/2, 0, 1, PITCH.H);
+
+    players.forEach(p => {
+        p.update();
+        p.draw();
+    });
+
+    // 실시간 xG 대시보드 업데이트
+    if (selectedPlayer && selectedPlayer.team === 'Leicester') {
+        const currentXG = selectedPlayer.calculateXG(ball, players[3], players.slice(3,4));
+        document.getElementById('live-dashboard').innerHTML = `
+            선수: ${selectedPlayer.name}<br>
+            현재 위치 xG: ${currentXG}<br>
+            슈팅 문턱값: ${selectedPlayer.xgThreshold}<br>
+            상태: ${currentXG >= selectedPlayer.xgThreshold ? "🔥 슈팅 대기" : "🔄 패스 탐색"}
+        `;
+    }
+
+    // 공 그리기
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// 이벤트 리스너
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    selectedPlayer = players.find(p => Math.hypot(p.x - mx, p.y - my) < 20);
+    if (selectedPlayer) {
+        document.getElementById('tactics-ui').style.display = 'block';
+        document.getElementById('player-name').innerText = selectedPlayer.name;
+        document.getElementById('radius-slider').value = selectedPlayer.radius;
+        document.getElementById('xg-slider').value = selectedPlayer.xgThreshold * 100;
+    }
+});
+
+document.getElementById('radius-slider').oninput = function() {
+    if(selectedPlayer) {
+        selectedPlayer.radius = parseInt(this.value);
+        document.getElementById('rad-val').innerText = this.value;
+    }
+};
+
+document.getElementById('xg-slider').oninput = function() {
+    if(selectedPlayer) {
+        selectedPlayer.xgThreshold = this.value / 100;
+        document.getElementById('xg-threshold-val').innerText = selectedPlayer.xgThreshold;
+    }
+};
+
+window.onkeydown = (e) => { if(e.code === "Space") isPaused = !isPaused; };
+
+gameLoop();
