@@ -1,135 +1,97 @@
-// --- [데이터 및 운영 변수] ---
-let gameState = {
-    currentDate: new Date('2025-07-21'),
-    fixtures: [{ date: '2025-07-22', opp: 'Arsenal', played: false }],
-    standings: [{name: 'Leicester', pts: 0}, {name: 'Arsenal', pts: 0}, {name: 'Man City', pts: 0}],
-    isMatchRunning: false
-};
-
-let allPlayers = []; // JSON 로드 데이터
-let activePlayers = []; // 현재 피치 위 선수 객체
+// --- [전역 상태] ---
+let ball = { x: 525, y: 340, vx: 0, vy: 0, radius: 7 }; // 공 추가
+let activePlayers = [];
 let selectedPlayer = null;
-let ball = { x: 525, y: 340, vx: 0, vy: 0 };
 
-// --- [Logic A: 초현실 물리 클래스] ---
+// --- [Logic A: 선수 클래스 보정] ---
 class SuperRealPlayer {
     constructor(data, teamSide) {
         this.data = data;
         this.team = teamSide;
-        this.x = teamSide === 'home' ? 300 + Math.random()*50 : 700 + Math.random()*50;
-        this.y = 100 + Math.random()*400;
+        this.name = data.short_name;
+        this.number = data.club_jersey_number || "??";
+        
+        // 초기 배치: 아군은 왼쪽(200~400), 적군은 오른쪽(600~800)
+        this.x = teamSide === 'home' ? 100 + Math.random()*300 : 650 + Math.random()*300;
+        this.y = 50 + Math.random()*580;
+        
         this.vx = 0; this.vy = 0;
         this.stamina = 1.0;
-        
-        // 스탯 기반 물리 계수
         this.mass = data.weight_kg || 75;
-        this.agility = (data.movement_agility || 50) / 100;
-        this.accelBase = (data.movement_acceleration || 50) / 100;
-    }
-
-    // 감독님 공식: 복리 감소 xG
-    calculateXG() {
-        let xg = (this.data.shooting || 50) / 100; // 1. 슈팅 스탯 기본값
-        
-        // 2. 거리 복리 감소 (10.5px당 4%)
-        const dist = Math.hypot(1050 - this.x, 340 - this.y);
-        for(let i=0; i < Math.floor(dist/10.5); i++) xg *= 0.96;
-        
-        // 3. 각도 복리 감소 (1도당 2%)
-        const angleDeg = Math.abs(Math.atan2(340-this.y, 1050-this.x) * 180 / Math.PI);
-        for(let i=0; i < Math.floor(angleDeg); i++) xg *= 0.98;
-
-        // 4. 키퍼 방해 (복리 1%)
-        for(let i=0; i < Math.floor((180-angleDeg)/10); i++) xg *= 0.99;
-
-        return Math.max(0.001, xg).toFixed(3);
     }
 
     update() {
-        // F=ma 물리 엔진
+        // 공을 향해 이동 (뭉침 방지 로직 포함)
         const dx = ball.x - this.x;
         const dy = ball.y - this.y;
         const dist = Math.hypot(dx, dy);
-        
-        if (dist > 5) {
-            const force = this.accelBase * this.stamina * 0.4;
-            this.vx += (dx/dist) * force / (this.mass/70);
-            this.vy += (dy/dist) * force / (this.mass/70);
+
+        if (dist > 15) { // 공과 일정 거리 유지 (너무 뭉치지 않게)
+            const accel = (this.data.movement_acceleration / 100) * this.stamina * 0.3;
+            this.vx += (dx / dist) * accel;
+            this.vy += (dy / dist) * accel;
         }
 
-        // 민첩성 기반 마찰 (관성 제어)
-        const friction = 0.8 + (this.agility * 0.15);
-        this.vx *= friction; this.vy *= friction;
-        
+        this.vx *= 0.9; this.vy *= 0.9; // 마찰력
         this.x += this.vx; this.y += this.vy;
-        this.stamina -= (Math.abs(this.vx) + Math.abs(this.vy)) * 0.0001; // 실시간 체력 소모
     }
 
     draw(ctx) {
+        // 1. 선수 몸체 (유니폼 색상)
         ctx.beginPath();
-        ctx.arc(this.x, this.y, (this.data.height_cm/180)*12, 0, Math.PI*2);
-        ctx.fillStyle = this.team === 'home' ? '#0053a0' : '#ef4444';
+        ctx.arc(this.x, this.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = this.team === 'home' ? '#0053a0' : '#8b0000'; // 레스터 블루 vs 원정 레드
         ctx.fill();
-        ctx.strokeStyle = selectedPlayer === this ? 'white' : 'transparent';
-        ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = (selectedPlayer === this) ? '#fbbf24' : '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 2. 등번호 표시
+        ctx.fillStyle = "white";
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(this.number, this.x, this.y + 4);
+
+        // 3. 이름 표시 (머리 위)
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(this.name, this.x, this.y - 18);
     }
 }
 
-// --- [Logic B: 날짜 진행 및 일정] ---
-function advanceDay() {
-    gameState.currentDate.setDate(gameState.currentDate.getDate() + 1);
-    const dateStr = gameState.currentDate.toISOString().split('T')[0];
-    
-    document.getElementById('cur-date-display').innerText = 
-        gameState.currentDate.toLocaleDateString('ko-KR', {year:'numeric', month:'long', day:'numeric', weekday:'long'});
-
-    const todayMatch = gameState.fixtures.find(f => f.date === dateStr && !f.played);
-    if (todayMatch) {
-        if (confirm(`${todayMatch.opp}와의 경기일입니다. 진입할까요?`)) {
-            startMatch(todayMatch);
-        }
-    }
-}
-
-async function startMatch(fixture) {
-    gameState.isMatchRunning = true;
-    document.getElementById('match-layer').style.display = 'flex';
-    
-    // 데이터 필터링 및 선수 객체화
-    const homeData = allPlayers.filter(p => p.club_name === "Leicester City").slice(0, 11);
-    const awayData = allPlayers.filter(p => p.club_name === fixture.opp).slice(0, 11);
-    
-    activePlayers = [
-        ...homeData.map(p => new SuperRealPlayer(p, 'home')),
-        ...awayData.map(p => new SuperRealPlayer(p, 'away'))
-    ];
-    
-    requestAnimationFrame(gameLoop);
-}
-
+// --- [Logic B: 경기 루프 및 공 렌더링] ---
 function gameLoop() {
     if (!gameState.isMatchRunning) return;
     const canvas = document.getElementById('pitch');
     const ctx = canvas.getContext('2d');
+
+    // 경기장 배경
+    ctx.fillStyle = "#14532d"; 
+    ctx.fillRect(0, 0, 1050, 680);
     
-    ctx.clearRect(0, 0, 1050, 680);
-    ctx.fillStyle = "#14532d"; ctx.fillRect(0,0,1050,680); // 잔디
-    
+    // 센터라인 및 골대 가이드 (FM 느낌)
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.strokeRect(0, 0, 1050, 680);
+    ctx.beginPath(); ctx.moveTo(525, 0); ctx.lineTo(525, 680); ctx.stroke();
+
+    // 공 그리기
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.shadowBlur = 10; ctx.shadowColor = "white"; // 공에 광택 효과
+
+    // 선수 업데이트 및 그리기
     activePlayers.forEach(p => {
         p.update();
         p.draw(ctx);
+        
+        // 선택된 선수 UI 업데이트
         if (p === selectedPlayer) {
-            document.getElementById('sel-xg').innerText = p.calculateXG();
-            document.getElementById('sel-stam').innerText = (p.stamina*100).toFixed(1) + "%";
-            document.getElementById('sel-mom').innerText = (Math.abs(p.vx)+Math.abs(p.vy)).toFixed(2);
+            document.getElementById('sel-player-name').innerText = `${p.number}. ${p.name}`;
+            document.getElementById('sel-xg').innerText = p.calculateXG ? p.calculateXG() : "0.000";
         }
     });
 
     requestAnimationFrame(gameLoop);
 }
-
-// 초기 데이터 로드
-fetch('Premier_League_FC26.json').then(r => r.json()).then(data => {
-    allPlayers = data;
-    console.log("매니저 데이터 로드 완료");
-});
