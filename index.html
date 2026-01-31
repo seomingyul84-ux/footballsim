@@ -2,50 +2,69 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Leicester City Tactical Sim v2</title>
+    <title>FC26 Tactical Sim v2 - Professional Edition</title>
     <style>
-        body { background: #1a1a1a; color: white; font-family: 'Pretendard', sans-serif; display: flex; margin: 0; }
-        #pitch-container { position: relative; padding: 20px; }
-        canvas { background: #2e7d32; border: 3px solid #eee; cursor: crosshair; }
-        #sidebar { width: 350px; background: #222; padding: 20px; border-left: 1px solid #444; }
-        .slider-group { margin-bottom: 20px; background: #333; padding: 10px; border-radius: 8px; }
-        label { display: block; font-size: 13px; margin-bottom: 5px; color: #aaa; }
-        input[type="range"] { width: 100%; }
-        .stats-panel { font-family: monospace; background: #000; padding: 10px; border-radius: 5px; margin-bottom: 20px; color: #0f0; }
-        .active-player { color: #003087; font-weight: bold; background: #fff; padding: 2px 5px; }
+        :root { --bg: #020617; --card: #1e293b; --accent: #3b82f6; --text: #f8fafc; }
+        body { background: var(--bg); color: var(--text); font-family: 'Pretendard', sans-serif; margin: 0; overflow: hidden; }
+        
+        /* [Office UI] */
+        #office-screen { display: flex; height: 100vh; }
+        #sidebar { width: 320px; background: #0f172a; border-right: 1px solid #334155; padding: 25px; }
+        .stat-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--accent); }
+        
+        /* [Match UI] - 경기 중 나타나는 레이어 */
+        #game-screen { display: none; position: fixed; inset: 0; background: #020617; z-index: 9999; flex-direction: row; }
+        #match-ui { width: 300px; background: rgba(15, 23, 42, 0.95); padding: 20px; border-right: 1px solid #334155; }
+        #pitch-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+        canvas { background: #14532d; border: 4px solid #3f6212; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        
+        /* 경기 중 실시간 스탯 플로팅 UI */
+        .live-stat { position: absolute; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; font-size: 12px; pointer-events: none; border: 1px solid var(--accent); }
+        
+        button { width: 100%; padding: 12px; cursor: pointer; background: var(--accent); color: white; border: none; border-radius: 6px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="pitch-container">
-        <canvas id="pitch" width="1050" height="680"></canvas>
-    </div>
-    <div id="sidebar">
-        <h2>Leicester City 지휘소</h2>
-        <div class="stats-panel" id="live-dashboard">
-            선수를 선택하여 지시를 내리십시오.
+
+    <div id="office-screen">
+        <div id="sidebar">
+            <h2 id="current-date">2025-08-01</h2>
+            <div class="stat-card">
+                <p style="font-size: 12px; color: #94a3b8;">NEXT MATCH</p>
+                <h3 id="next-opp-name">Loading...</h3>
+                <button onclick="advanceDay()">다음 날로 이동</button>
+            </div>
+            <div id="league-mini-table">
+                </div>
         </div>
-        
-        <div id="tactics-ui" style="display:none;">
-            <div class="active-player" id="player-name">선수명</div>
-            <div class="slider-group">
-                <label>활동 범위 (Operating Radius): <span id="rad-val">150</span>m</label>
-                <input type="range" id="radius-slider" min="30" max="500" value="150">
-            </div>
-            <div class="slider-group">
-                <label>슈팅 xG 문턱값: <span id="xg-threshold-val">0.3</span></label>
-                <input type="range" id="xg-slider" min="1" max="99" value="30">
-            </div>
-            <div class="slider-group">
-                <label>태클 강도: <span id="tackle-val">50</span></label>
-                <input type="range" id="tackle-slider" min="0" max="100" value="50">
-            </div>
-            <div class="slider-group">
-                <label>패스(좌) vs 크로스(우): <span id="style-val">50</span></label>
-                <input type="range" id="style-slider" min="0" max="100" value="50">
-            </div>
+        <div style="flex-grow:1; padding:40px;">
+            <h1>Dashboard</h1>
+            <p>팀 컨디션 및 일정을 관리하세요.</p>
         </div>
-        <p style="font-size: 11px; color: #666;">* 스페이스바: 일시정지 및 전술 지시</p>
     </div>
+
+    <div id="game-screen">
+        <div id="match-ui">
+            <h2 id="match-title" style="color:var(--accent);">Leicester vs Arsenal</h2>
+            <hr style="border:0; border-top:1px solid #334155; margin:20px 0;">
+            
+            <div class="stat-card">
+                <p>선택된 선수 스탯</p>
+                <h4 id="sel-name">-</h4>
+                <div style="font-size:13px; color:#94a3b8;">
+                    <p>Height/Weight: <span id="sel-phys">-</span></p>
+                    <p>Momentum: <span id="sel-mom">-</span></p>
+                    <p>Stamina: <span id="sel-stam">-</span></p>
+                    <p style="color:#fbbf24; font-weight:bold;">LIVE xG: <span id="sel-xg">0.000</span></p>
+                </div>
+            </div>
+            <button onclick="endMatch()" style="background:#ef4444;">경기 종료</button>
+        </div>
+        <div id="pitch-area">
+            <canvas id="pitch" width="1050" height="680"></canvas>
+            </div>
+    </div>
+
     <script src="engine.js"></script>
 </body>
 </html>
