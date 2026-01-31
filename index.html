@@ -2,95 +2,108 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>LCFC Hyper-Real Manager v3</title>
+    <title>LCFC Tactical Dashboard v4</title>
     <style>
-        :root { --fm-red: #8b0000; --fm-dark: #050505; --fm-panel: #151515; --lcfc-blue: #0053a0; --accent: #fbbf24; }
+        :root { --fm-red: #8b0000; --fm-dark: #0a0a0a; --fm-panel: #1a1a1a; --lcfc-blue: #0053a0; --accent: #fbbf24; }
         body { background: var(--fm-dark); color: #e2e8f0; font-family: 'Pretendard', sans-serif; margin: 0; overflow: hidden; }
         
-        /* [Office View] */
-        #office-view { display: flex; height: 100vh; }
-        #nav-bar { width: 180px; background: #000; border-right: 1px solid #333; padding: 20px; }
-        .nav-item { padding: 12px; margin: 5px 0; color: #888; cursor: pointer; border-radius: 4px; font-size: 13px; }
+        /* Office View: FM 스타일의 웅장한 레이아웃 */
+        #office-view { display: grid; grid-template-columns: 200px 1fr; height: 100vh; }
+        #sidebar { background: #000; padding: 20px; border-right: 1px solid #333; }
+        .nav-item { padding: 12px; color: #888; cursor: pointer; border-radius: 4px; font-size: 13px; margin-bottom: 5px; }
         .nav-item.active { background: var(--fm-red); color: white; }
-        
-        #main-dashboard { flex-grow: 1; display: flex; flex-direction: column; }
-        #top-header { height: 60px; background: var(--fm-red); display: flex; align-items: center; justify-content: space-between; padding: 0 30px; font-weight: bold; }
-        #dashboard-grid { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 20px; padding: 25px; }
-        .panel { background: var(--fm-panel); border-radius: 8px; padding: 20px; border-top: 3px solid var(--lcfc-blue); }
 
-        /* [Match View] */
+        #main-content { display: flex; flex-direction: column; }
+        #top-bar { height: 50px; background: var(--fm-red); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; font-weight: bold; }
+        #dashboard { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 15px; padding: 20px; overflow-y: auto; }
+        .panel { background: var(--fm-panel); border-radius: 4px; padding: 15px; border-top: 2px solid var(--lcfc-blue); }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { text-align: left; color: #666; padding-bottom: 5px; }
+        td { padding: 4px 0; border-bottom: 1px solid #2a2a2a; }
+
+        /* Match View: 실전 지휘소 */
         #match-view { position: fixed; inset: 0; background: #020617; z-index: 9999; display: none; flex-direction: column; }
-        #match-scoreboard { height: 80px; background: #0f172a; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid #334155; }
-        .score-box { display: flex; align-items: center; gap: 30px; font-size: 26px; font-weight: 900; }
-        .match-timer { background: #000; padding: 5px 12px; border-radius: 4px; color: var(--accent); font-family: monospace; }
-
-        #match-content { display: flex; flex-grow: 1; }
-        #match-stats-panel { width: 260px; background: rgba(15, 23, 42, 0.95); padding: 20px; border-right: 1px solid #334155; }
-        .stat-row { display: flex; justify-content: space-between; margin: 12px 0; font-size: 13px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        #scoreboard { height: 70px; background: #0f172a; display: flex; align-items: center; justify-content: center; gap: 50px; font-size: 24px; font-weight: 800; border-bottom: 1px solid #334155; }
+        .timer { background: #000; color: var(--accent); padding: 4px 12px; border-radius: 4px; font-family: monospace; }
         
-        #player-hud { width: 260px; background: rgba(15, 23, 42, 0.95); padding: 20px; border-left: 1px solid #334155; }
-        .stamina-container { width: 100%; height: 8px; background: #334155; border-radius: 4px; margin-top: 10px; overflow: hidden; }
-        #hud-stamina-fill { height: 100%; background: #22c55e; transition: width 0.3s; }
-
-        #pitch-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #020617; }
-        canvas { background: #14532d; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
-
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .btn-adv { background: white; color: black; }
+        #match-grid { display: grid; grid-template-columns: 250px 1fr 250px; flex-grow: 1; }
+        #pitch-area { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1e3a2f 0%, #020617 100%); }
+        canvas { background: #14532d; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+        .side-panel { background: rgba(15, 23, 42, 0.9); padding: 20px; border: 1px solid #334155; }
+        .stamina-bar { width: 100%; height: 6px; background: #333; border-radius: 3px; margin-top: 10px; }
+        #stamina-fill { height: 100%; background: #22c55e; transition: width 0.3s; }
     </style>
 </head>
 <body>
 
-    <div id="office-view">
-        <div id="nav-bar">
-            <div style="color: var(--lcfc-blue); font-weight: bold; font-size: 20px; margin-bottom: 30px;">LCFC HUB</div>
-            <div class="nav-item active">대시보드</div>
-            <div class="nav-item">스쿼드</div>
-            <div class="nav-item">일정</div>
+<div id="office-view">
+    <div id="sidebar">
+        <div style="font-size: 18px; font-weight: bold; color: var(--lcfc-blue); margin-bottom: 30px;">LEICESTER HUB</div>
+        <div class="nav-item active">홈</div>
+        <div class="nav-item">스쿼드</div>
+        <div class="nav-item">전술</div>
+        <div class="nav-item">이적 시장</div>
+    </div>
+    <div id="main-content">
+        <div id="top-bar">
+            <div id="current-date">2025년 7월 21일 월요일</div>
+            <button onclick="advanceDay()" style="background:white; border:none; padding:6px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">다음 날로 진행</button>
         </div>
-        <div id="main-dashboard">
-            <div id="top-header">
-                <div id="display-date">2025-07-21</div>
-                <button class="btn btn-adv" onclick="advanceDay()">다음 날로 진행</button>
+        <div id="dashboard">
+            <div class="panel">
+                <h3 style="font-size: 14px; margin-top: 0;">다음 경기</h3>
+                <div id="next-match-info" style="text-align:center; padding:15px 0;">
+                    <div style="font-size:20px; font-weight:bold;">VS ARSENAL</div>
+                    <div style="font-size:11px; color:#888; margin-top:5px;">2025. 07. 22 (홈)</div>
+                </div>
             </div>
-            <div id="dashboard-grid">
-                <div class="panel"><h3>다음 경기</h3><div id="next-match-card">로딩 중...</div></div>
-                <div class="panel"><h3>리그 순위</h3><table id="office-standings" style="width:100%; font-size:12px;"></table></div>
-                <div class="panel"><h3>팀 보고서</h3><p>예산: ₩35.49억</p><p>상태: <span style="color:#22c55e">최상</span></p></div>
+            <div class="panel">
+                <h3 style="font-size: 14px; margin-top: 0;">리그 순위 (PL)</h3>
+                <table id="league-table">
+                    <thead><tr><th>순위</th><th>팀</th><th>경기</th><th>승점</th></tr></thead>
+                    <tbody id="standings-body"></tbody>
+                </table>
+            </div>
+            <div class="panel">
+                <h3 style="font-size: 14px; margin-top: 0;">재정 & 부상</h3>
+                <p style="font-size:12px;">이적 예산: <span style="color:#22c55e">₩35.49억</span></p>
+                <p style="font-size:12px;">부상자: <span style="color:#ef4444">0명</span></p>
             </div>
         </div>
     </div>
+</div>
 
-    <div id="match-view">
-        <div id="match-scoreboard">
-            <div class="score-box">
-                <span id="home-name">LEICESTER</span>
-                <span id="match-score">0 : 0</span>
-                <span id="away-name">OPPONENT</span>
-                <div class="match-timer" id="match-time">00:00</div>
+<div id="match-view">
+    <div id="scoreboard">
+        <span>LEICESTER</span>
+        <div id="score">0 : 0</div>
+        <span>ARSENAL</span>
+        <div class="timer" id="match-timer">00:00</div>
+    </div>
+    <div id="match-grid">
+        <div class="side-panel">
+            <h4 style="color:var(--accent)">경기 통계</h4>
+            <div style="font-size:12px; line-height:2.5;">
+                슈팅: <span id="stat-shots">0 / 0</span><br>
+                유효슈팅: <span id="stat-shotson">0 / 0</span><br>
+                코너킥: <span id="stat-corners">0 / 0</span><br>
+                경고/퇴장: <span id="stat-cards">0 / 0</span>
             </div>
         </div>
-        <div id="match-content">
-            <div id="match-stats-panel">
-                <h4 style="color:var(--accent)">MATCH STATS</h4>
-                <div class="stat-row"><span>슈팅</span><span id="s-shots">0 / 0</span></div>
-                <div class="stat-row"><span>유효슈팅</span><span id="s-shotson">0 / 0</span></div>
-                <div class="stat-row"><span>코너킥</span><span id="s-corners">0 / 0</span></div>
-                <div class="stat-row"><span>경고/퇴장</span><span id="s-cards">0 / 0</span></div>
-            </div>
-            <div id="pitch-container"><canvas id="pitch" width="1050" height="680"></canvas></div>
-            <div id="player-hud">
-                <h4 style="color:var(--accent)">PLAYER HUD</h4>
-                <p id="h-name" style="font-weight:bold; font-size:16px;">선수 선택</p>
-                <div class="stat-row"><span>실시간 xG</span><span id="h-xg" style="color:var(--accent)">0.000</span></div>
-                <div class="stat-row"><span>관성(Mom)</span><span id="h-mom">0.00</span></div>
-                <p style="font-size:11px; margin-top:15px;">스태미나</p>
-                <div class="stamina-container"><div id="hud-stamina-fill"></div></div>
-                <button class="btn" onclick="stopMatch()" style="background:#ef4444; color:white; width:100%; margin-top:30px;">종료</button>
+        <div id="pitch-area"><canvas id="pitch" width="1000" height="650"></canvas></div>
+        <div class="side-panel">
+            <h4 style="color:var(--accent)">선수 정보</h4>
+            <div id="hud-player">
+                <p id="hud-name" style="font-weight:bold;">선수 클릭</p>
+                <p style="font-size:11px;">xG: <span id="hud-xg" style="color:var(--accent)">0.000</span></p>
+                <p style="font-size:11px;">스태미나</p>
+                <div class="stamina-bar"><div id="stamina-fill" style="width:0%"></div></div>
+                <button onclick="stopMatch()" style="width:100%; margin-top:30px; background:#ef4444; color:white; border:none; padding:10px; cursor:pointer;">경기 중단</button>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="engine.js"></script>
+<script src="engine.js"></script>
 </body>
 </html>
