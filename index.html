@@ -2,87 +2,83 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>LCFC Managerial Dashboard</title>
+    <title>LCFC Hyper-Real Manager</title>
     <style>
-        :root { --fm-red: #8b0000; --fm-dark: #121212; --fm-card: #1e1e1e; --accent: #0053a0; } /* 레스터 블루로 포인트 */
-        body { background: var(--fm-dark); color: white; font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; height: 100vh; }
+        :root { --fm-red: #8b0000; --fm-dark: #0a0a0a; --fm-card: #1a1a1a; --lcfc-blue: #0053a0; }
+        body { background: var(--fm-dark); color: white; font-family: 'Pretendard', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         
-        /* 좌측 네비게이션 */
-        #nav-bar { width: 180px; background: #0a0a0a; display: flex; flex-direction: column; padding: 10px; border-right: 1px solid #333; }
-        .nav-item { padding: 12px; margin: 4px 0; cursor: pointer; border-radius: 4px; font-size: 13px; color: #ccc; }
-        .nav-item:hover { background: #222; }
-        .nav-item.active { background: var(--fm-red); color: white; }
+        /* [UI] 사이드바 & 대시보드 */
+        #side-nav { width: 200px; background: #000; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 15px; }
+        .nav-btn { padding: 12px; margin: 5px 0; color: #888; cursor: pointer; border-radius: 4px; font-size: 14px; }
+        .nav-btn.active { background: var(--fm-red); color: white; }
+        
+        #main-view { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+        #top-header { height: 60px; background: var(--fm-red); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; }
+        
+        #dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; padding: 25px; overflow-y: auto; }
+        .panel { background: var(--fm-card); border-radius: 8px; padding: 20px; border-top: 4px solid var(--lcfc-blue); }
 
-        /* 메인 대시보드 */
-        #dashboard { flex-grow: 1; padding: 20px; display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 15px; overflow-y: auto; }
-        .fm-panel { background: var(--fm-card); border-radius: 5px; padding: 15px; border-top: 3px solid var(--accent); }
-        h3 { font-size: 14px; margin-top: 0; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 5px; }
-
-        /* 상단 바 */
-        #top-bar { position: absolute; top: 0; left: 180px; right: 0; height: 50px; background: var(--fm-red); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10; }
+        /* [Match Engine] 경기 시 레이어 */
+        #match-layer { position: fixed; inset: 0; background: #020617; z-index: 9999; display: none; flex-direction: row; }
+        #match-sidebar { width: 300px; background: rgba(15, 23, 42, 0.9); padding: 20px; border-right: 1px solid #334155; }
+        #pitch-canvas { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #020617; }
+        canvas { background: #14532d; border: 5px solid #3f6212; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
         
-        /* 경기 화면 (기본 숨김) */
-        #match-screen { position: fixed; inset: 0; background: black; z-index: 1000; display: none; }
-        canvas { background: #14532d; border: 3px solid #3f6212; }
-        
-        table { width: 100%; font-size: 12px; border-collapse: collapse; }
-        td, th { padding: 8px; text-align: left; border-bottom: 1px solid #2a2a2a; }
-        .btn-advance { background: white; color: black; border: none; padding: 8px 20px; font-weight: bold; cursor: pointer; border-radius: 3px; }
+        .stat-val { color: #fbbf24; font-weight: bold; }
+        .btn-adv { background: white; color: black; border: none; padding: 10px 25px; font-weight: bold; cursor: pointer; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div id="nav-bar">
-        <div style="font-weight: bold; color: var(--accent); margin-bottom: 20px; padding: 10px;">LCFC HUB</div>
-        <div class="nav-item active">홈</div>
-        <div class="nav-item">선수단</div>
-        <div class="nav-item">전술</div>
-        <div class="nav-item">일정</div>
-        <div class="nav-item">스카우트</div>
+    <div id="side-nav">
+        <div style="color: var(--lcfc-blue); font-weight: bold; margin-bottom: 30px; font-size: 20px;">LCFC HUB</div>
+        <div class="nav-btn active">홈 (대시보드)</div>
+        <div class="nav-btn">스쿼드</div>
+        <div class="nav-btn">전술</div>
+        <div class="nav-btn">일정</div>
     </div>
 
-    <div id="top-bar">
-        <div id="display-date">2025년 7월 21일 월요일</div>
-        <button class="btn-advance" onclick="advanceDay()">다음 날로 진행</button>
-    </div>
-
-    <div id="dashboard" style="margin-top: 60px;">
-        <div class="fm-panel">
-            <h3>다음 경기</h3>
-            <div style="text-align: center; padding: 20px 0;">
-                <div style="font-size: 12px; color: #888;">잉글랜드 프리미어 리그</div>
-                <div style="font-size: 20px; margin: 10px 0;">LEICESTER vs ARSENAL</div>
-                <div style="font-size: 11px;">King Power Stadium</div>
+    <div id="main-view">
+        <div id="top-header">
+            <div id="cur-date-display" style="font-weight: bold;">2025-07-21 월요일</div>
+            <button class="btn-adv" onclick="advanceDay()">다음 날로 진행</button>
+        </div>
+        
+        <div id="dashboard">
+            <div class="panel">
+                <h3 style="color:#888; font-size:12px;">다음 경기</h3>
+                <div id="next-match-info" style="text-align:center; padding:20px 0;">
+                    <div style="font-size:22px; font-weight:bold;">VS ARSENAL</div>
+                    <div style="font-size:12px; margin-top:10px;">King Power Stadium</div>
+                </div>
             </div>
-            <h3>최근 일정</h3>
-            <div id="fixture-list" style="font-size: 11px; color: #888;"></div>
-        </div>
-
-        <div class="fm-panel">
-            <h3>리그 순위</h3>
-            <table>
-                <thead><tr><th>순위</th><th>팀</th><th>전</th><th>승점</th></tr></thead>
-                <tbody id="standings-body"></tbody>
-            </table>
-        </div>
-
-        <div class="fm-panel">
-            <h3>팀 보고서</h3>
-            <div style="font-size: 12px;">
-                <p>부상 위험 높음: <span style="color: #ffaa00;">제이미 바디</span></p>
-                <p>훈련 성과 우수: <span style="color: #00ff00;">해리 윙크스</span></p>
+            <div class="panel">
+                <h3 style="color:#888; font-size:12px;">리그 순위</h3>
+                <table style="width:100%; font-size:13px; border-collapse:collapse;" id="mini-table">
+                    </table>
             </div>
-            <h3 style="margin-top: 20px;">재정</h3>
-            <div style="font-size: 12px; color: #00ff00;">₩35.49억 (가용 예산)</div>
+            <div class="panel">
+                <h3 style="color:#888; font-size:12px;">팀 상태</h3>
+                <p style="font-size:13px;">예산: <span style="color:#4ade80;">₩35.49억</span></p>
+                <p style="font-size:13px;">스쿼드 분위기: <span style="color:#fbbf24;">보통</span></p>
+            </div>
         </div>
     </div>
 
-    <div id="match-screen">
-        <div style="padding: 10px; color: white; display: flex; justify-content: space-between;">
-            <span id="match-info">LIVE MATCH</span>
-            <button onclick="exitMatch()" style="background: red; color: white; border: none;">중단</button>
+    <div id="match-layer">
+        <div id="match-sidebar">
+            <h2 id="match-title">Match Day</h2>
+            <div class="panel" style="margin-top:20px;">
+                <p id="sel-player-name" style="font-weight:bold; font-size:18px;">선수를 선택하세요</p>
+                <div style="font-size:13px; color:#94a3b8; line-height:1.8;">
+                    <p>실시간 xG: <span id="sel-xg" class="stat-val">0.000</span></p>
+                    <p>관성(Mom): <span id="sel-mom" class="stat-val">0.00</span></p>
+                    <p>스태미나: <span id="sel-stam" class="stat-val">100%</span></p>
+                </div>
+            </div>
+            <button onclick="stopMatch()" style="background:#ef4444; width:100%; margin-top:20px;">경기 중단</button>
         </div>
-        <div style="display: flex; justify-content: center; align-items: center; height: 90vh;">
+        <div id="pitch-canvas">
             <canvas id="pitch" width="1050" height="680"></canvas>
         </div>
     </div>
